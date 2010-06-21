@@ -1,0 +1,76 @@
+
+ how to realize the algorithm of this paper?
+ 
+ here is my personal perspective: 
+ 
+ step1: create doc_term_weight vector based on TF-IDF theory
+ assume that there are n documents in the training set. and then  use 
+ the class "TFIDF" to compute the n documents' term weight vector.
+ 
+ step2: create doc-to-doc similarity matrix 
+ use TermVector class to compute the cos similarity of doc i and doc j
+ ( assume that doc i and doc j are in the training n-doc set ), the doc-to-doc 
+ cosine similarity values are stored in a n*n matrix 
+ 
+ step3: find out nearest neighbor list
+ scan the similarity matrix and find out top-k nearest docs of doc i(assume 
+ that doc i is in the training n-document set), then top-k nearest docs are stored
+ in 2-dimension matrix.(the nearest_neighbor matrix is a n*k matrix)
+ 
+ step4: create nearest neighbor graph
+ use a n*n matrix that stands for nearest neighbor graph; then scan i from row 1 to row n 
+ scan j from column 1 to column n, check if doc i 's nearest neighbor arraylist
+ comtains j and if doc j's nearest  neighbor arraylist comtains i:
+ if it is "true", 
+	 then draw a undirected link from i to j, here we use boolean 
+	 value "nearest neighbor graph(i,j)= true = 1" to represent that. 
+ if it is "false", 
+ 	then do nothing;
+ 	
+ step 5: create shared neighbor graph
+ use a n*n doc-to-doc matrix as a representative of shared neighbor graph;
+ 
+ if shared neighbor graph(i,j) = 0, 
+ 	that means: there is no link from doc i to doc j;
+ 	
+ if shared neighbor graph(i,j) = integer num != 0,
+	that means: there is a link from doc i to doc j, and the integer value = 
+	how many nearest neighbor that doc i and doc j share
+	
+ and then check nearest neighbor graph which is represented by a boolean matrix, 
+ if there is a link from i to j = true
+ 	then: there is a link from i to j; compute the how many nearest neighbor that 
+ 	doc i and doc j share; and the value is set to be how many nearest neighbor 
+ 	that doc i and doc j share;
+ 	
+ if there is a link from i to j = false
+    then: the matrix(i,j) value is set to be 0;
+ 
+ 
+step 6: create strong_link array (named connectivity[]) for all the documents
+for a given strong link threshold t for link strength, we create strong link array
+as follows:
+	scan shared_neighbor_graph matrix, now assume that we need to compute 
+	strong_link(i), from row i,scan column j from column 1 to column n, then check 
+	if matrix(i,j) > strong_link threshold:
+    	if true, then: strong_link(i)++;
+   		else do nothing;
+
+step 7: find out represented node (represent the neighborhood)
+for a given threshold for strong_link number, assume we need to jusify if doc i is 
+qualified to be center of a cluster
+  if strong_link[i] > topic threshold: i is represented node;
+  if strong_link[i] < noisy threshol: i is noisy and seperated node
+  if strong_link[i] = [noisy, topic]: what should i do ? help me!
+  
+step 8: how to clustering?
+use a n*n matrix to represent the clustering result; if matrix(i,j)= matrix(j,i)=1
+then we view doc i and doc j are in the same cluster;  a cluster is an undirected
+connected graph; 
+
+for i from 1 to n in shared neighbor graph matrix
+  for j from i to n in shared neighbor graph matrix
+       if shared_neighbor_graph(i,j) > merged theshold 
+            if doc i = represented node or doc j = represented node
+              then do: i and j is in the same cluster; a link between i and j
+ 

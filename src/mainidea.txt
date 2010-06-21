@@ -1,0 +1,156 @@
+算法实现：
+第零步：下载sougou词库文件，从词库文件随即生成 文件训练集；记录原文件分类情况以利于比较；
+
+第一步：基于TF－IDF理论计算文档和文档之间的相似度
+实现思路：假定有文档训练集合里有k篇文档，先对文档中的每一个term都提取出来，去除相同的重复term，得到整个文档训练
+集合的dictionary（词典），然后求解Term Frequency，求解IDF＝k/DF,再利用term weight ＝ TF*IDF得到一篇一篇
+文档的权重向量表达。最后利用向量相似度公式得到doc i和doc j之间的相似度。
+
+输入：String[k] DOCs 
+假定每一个doc以String的形式保存到String数组 DOCs里；DOCs的长度＝k＝整个文档训练集合的doc个数 
+
+输出：Double[k][k] DocSimilarity 
+数据结构解析：这是一个k＊k的基于对角线的对称矩阵，DocSimilarity[i][j]表示文档i和文档j之间的相似度。其中对角线上的
+DocSimilarity[i][i]相似度最大，作归一化之后，DocSimilarity[i][i]=1。而当i！＝j的时候，
+DocSimilarity[i][j]<1
+ 
+第二步：求 nearest neighbor list
+实现思路：扫描DocDimilarity[][]矩阵，找出文档训练集合总共k篇文档中的每一个文档的top n个nearest neighbor，
+把这n个document id 保存到 nearest neighbor list里。
+
+数据结构：
+设定nearest_neighbor_list为一个大小为k*n的矩阵。
+其中矩阵的第i行，表示文档i的 top n 个 nearest neighbor。而且第i行的元素从左到右按照和doc i的相似度自大到小
+排列，反映nearest neighbor list中的文档和 doc i的相似度从近到远的变化趋势。第i行的第0个nearest neighbor的
+doc id 固定设置为 i，因为doc i和doc i必然最相似。nearest_neighbor_list[i][j] ＝ doc i的第j近的文档的id
+
+伪代码：
+for i = 1 to k
+	copy DocSimilarity[i][*] to Array Sim(Sim数组长度＝k)
+	Double[] SortedSim = Sort(Sim)
+	for j = 1 to n
+		nearest_neighbor_list[i][j] = Sim.getDocID(SortedSim[j]) 
+		
+
+输入：Double[k][k] DocSimilarity             文档－文档相似度矩阵
+输出：Integer[k][n] nearest_neighbor_list    文档-top n nearest neighbor矩阵
+
+
+第三步：求nearest neighbor graph
+实现思路：扫描nearest neighbor list 矩阵，如果doc i和doc j的nearest neighbor list相互包含对方，说明doc
+i和doc j之间有一条link，最后得到文档link图 
+
+数据结构：
+使用一个大小为k＊k (k=总文档数)的boolean类型矩阵nearest_neighbor_graph[][]来表示nearest neighbor 
+graph， nearest_neighbor_graph[i][j]＝true表示doc i和doc j之间有link
+
+伪代码：
+for i= row 1 to row k
+	for j = column 1 to column k   
+ 		 if ( IsComtainEachOther(nearest_neighbor_list, i,j)== true )
+ 		 	do: nearest neighbor graph[i][j] = true
+ 		 else
+ 		 	do: nearest neighbor graph[i][j] = false
+ 		 	
+输入：Integer[k][n] nearest_neighbor_list    文档-top n nearest neighbor矩阵
+输出： Boolean[k][k] nearest_neighbor_graph		 	
+ 		 
+第四步：求shared neighbor graph
+数据结构：
+使用一个大小为n＊n的矩阵来表示 shared neighbor graph， 如果shared neighbor graph[i][j] ＝ 0，表明doc i和
+doc j之间没有link，更不存在weighted link strength。如果 shared neighbor graph[i][j] ＝ double number 
+> 0，表明doc i和doc j之间的weighted link strength 为此double数。
+
+伪代码： 
+for i = 1 to k	
+	for j = 1 to k
+		if(nearest neighbor graph[i][j] = true )
+			do: doc i和doc j之间有link
+				按照自定义weighted link strength规则来计算doc i和doc j之间的link strength
+				shared_neighbor_graph[i][j] = ComputeLinkStrength(nearest_neighbor_list, i, j)
+ 		else
+ 			do: weighted link strength=0
+ 			
+输入：Integer[k][n] nearest_neighbor_list    文档-top n nearest neighbor矩阵
+     Boolean[k][k] nearest_neighbor_graph	文档link图
+输出：Double[k][k]  shared neighbor graph    文档weighted link strength图	 	
+ 
+第五步：扫描shared neighbor graph，判断一个文档的许多link中，哪些link是
+strong link，并计算其strong link的个数，保存在strong_link［doc id］里。
+数据结构：
+strong_link 是一个integer类型的长度为k的数组，保存文档strong link个数
+
+伪代码：
+for i =1 to k
+	strong_link[i] = 0
+	for j = 1 to k
+		if shared neighbor graph[i][j] > strong link threshold
+			do: strong_link[i]++
+		else 
+			do nothing
+			
+输入：Double[k][k]  shared neighbor graph 		文档weighted link strength图	 	
+输出：Integer[k] strong_link                             文档strong link个数记录数组
+
+第六步：人为的给定关于strong link 个数的threshold，找出可以represent the neighborhood 的代表点
+
+数据结构：
+enum {representative, noisy, between_noisy_and_represent }
+使用长度为k的 node_classification[]的enum数组表示doc i是否为代表点
+
+伪代码：
+for i = 1 to k
+  if strong_link[i] > topic threshold
+  	do: node_classification[i] = "representative"
+  else if strong_link[i] < noisy threshold
+  	do: node_classification[i] = "noisy"
+  else
+  	do what?
+
+输入：Integer[k] strong_link
+输出：Enum[k] node_classification
+
+ 
+第七步：如何做clustering？
+数据结构：使用一个k*k的矩阵cluster[k][k]来表示文本聚类结果，如果 cluster[i][j]=cluster[j][i]=1,说明doc i和
+doc j在同一个cluster里，一个cluster实质是一个无向连同图。
+
+伪代码：
+scan shared_neighbor_graph[][]
+for i＝1 to k 
+  for j=1 to k 
+       if (shared_neighbor_graph[i][j] > merged theshold) 
+            if (node_classification[i] = representative || node_classification[j] = representative)
+              then do: i and j is in the same cluster; a link between i and j
+第七步算法还没有完整，需要大家的完成其他的我没有理解那部分。比如对于那些link strength 在noisy和topic threshold之间的
+ 如何处理？在文章还论述。
+ 
+ 输入：double[k][k] shared_neighbor_graph
+ 输出：boolean[k][k] cluster
+ 
+ 第八步：对同样的文档训练集，使用kmeans同样作一次clustering，得到cluster结果和论文算法比较
+ //本算法没有考虑去除representative点
+input：boolean[k][k] cluster
+output：boolean[k][k] cluster
+int strength=0 //记录目前最大的link strength
+int point //记录目前strength最大的j值
+scan cluster
+for i=0 to k
+   if getSum(i)==1  //说明doc[i]没有被分类
+     for j=i+1 to k //避免了孤立点（即在上一步没有被分类的doc）的传递性
+         if getSum(j)>1  //只有doc[j]已经在第七步上被分类了，才计算doc[i]是否属于doc[j]所在的类
+            if shared_neighbor_graph[i][j]>laberling threhold
+                if strength<shared_neighbor_graph[i][j]   
+                   strength=shared_neighbor_graph[i][j]
+                   point=j;
+    if strenth==0
+         then doc[i] miss   
+    else 
+          cluster[i][j]=1
+          cluster[j][i]=1
+          strenth=0
+end
+
+
+getSum(i)表示计算矩阵cluster第i行的和
+ 
